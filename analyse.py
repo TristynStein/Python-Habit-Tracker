@@ -25,10 +25,8 @@ def return_max_habit_streaks(db):
     - The maximum habit streak.
     """
     habits = get_habit_names(db)
-    print(habits)
     for i in range(len(habits)):
         streaks = get_streak_counter(db, habits[i])
-        print(streaks)
         return max(str(streaks))
 
 
@@ -44,7 +42,7 @@ def get_name_of_longest_streak(db):
     """
     cur = db.cursor()
     cur.row_factory = lambda cursor, row: row[0]
-    cur.execute("SELECT habitName FROM tracker WHERE streakCounter = ?", (return_max_habit_streaks(db),))
+    cur.execute("SELECT DISTINCT habitName FROM tracker WHERE streakCounter = ?", (return_max_habit_streaks(db),))
     data = cur.fetchall()
     concatenated_data = ""
     for x in range(len(data)):
@@ -117,3 +115,89 @@ def get_streak_counter(db, habit):
     cur.execute("SELECT streakCounter FROM tracker WHERE habitName = ? AND date = ?", (habit, latest_date[0]))
     data = cur.fetchone()
     return data
+
+
+def get_single_alltime_streak(db, habit):
+    """
+    Returns the highest streak counter value for a specific habit from the tracker database.
+
+    Parameters:
+    - db: The database connection object.
+    - habit: The name of the habit to retrieve the streak counter for.
+
+    Returns:
+    - The total streak counter value for the specified habit.
+    """
+    cur = db.cursor()
+    cur.row_factory = lambda cursor, row: row[0]
+    cur.execute("SELECT MAX(streakCounter) FROM tracker WHERE habitName = ?", (habit,))
+    data = cur.fetchone()
+    return data
+
+
+def get_alltime_streak(db, periodicity):
+    """
+    Returns the highest streak counter value for a given periodicity from the tracker database.
+
+    Parameters:
+    - db: The database connection object.
+    - periodicity: The periodicity of the habit to retrieve the streak counter for.
+
+    Returns:
+    - The total streak counter value for the specified habit.
+    """
+    cur = db.cursor()
+    cur.row_factory = lambda cursor, row: row[0]
+    cur.execute("SELECT MAX(streakCounter) FROM tracker WHERE habitName IN "
+                "(SELECT name FROM habits WHERE periodicity = ?)", (periodicity,))
+    streak_value = cur.fetchone()
+    return streak_value
+
+
+def get_alltime_habit(db, periodicity):
+    """
+    A function to retrieve habit names that match both streak and periodicity criteria.
+
+    Parameters:
+    - db: the database connection
+    - periodicity: the period for which habits are checked
+
+    Returns:
+    - concatenated_data: a list containing the names of habits that match both criteria
+    """
+    streak_value = get_alltime_streak(db, periodicity)
+    cur = db.cursor()
+    cur.row_factory = lambda cursor, row: row[0]
+    cur.execute("SELECT name FROM habits WHERE periodicity = ?", (periodicity,))
+    periodic_habit_names = cur.fetchall()
+    cur.execute("SELECT habitName FROM tracker WHERE streakCounter = ?", (streak_value,))
+    streak_habit_names = cur.fetchall()
+    data = [i for i in streak_habit_names if i in periodic_habit_names]
+    concatenated_data = ""
+    for x in range(len(data)):
+        if x == 0:
+            concatenated_data += str(data[x])
+        else:
+            concatenated_data += ", " + str(data[x])
+    return concatenated_data
+
+
+def get_habits_by_periodicity(db, periodicity):
+    """
+    Retrieves habits from the database based on the given periodicity.
+
+    :param db: The database connection object.
+    :param periodicity: The periodicity value to filter habits by.
+    :return: A list of habit names that match the given periodicity.
+    """
+    cur = db.cursor()
+    cur.row_factory = lambda cursor, row: row[0]
+    cur.execute("SELECT DISTINCT name FROM habits WHERE periodicity = ?", (periodicity,))
+    data = cur.fetchall()
+    concatenated_data = ""
+    for x in range(len(data)):
+        if x == 0:
+            concatenated_data += str(data[x])
+        else:
+            concatenated_data += ", " + str(data[x])
+    return concatenated_data

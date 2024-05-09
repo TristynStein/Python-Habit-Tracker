@@ -1,8 +1,9 @@
 import questionary
-from db import get_db, get_habits
+from db import get_db, get_habits, get_periodicity
 from habit import Habit
 from analyse import (return_max_habit_streaks, break_streak, habit_status, get_habit_names,
-                     get_streak_counter, get_name_of_longest_streak)
+                     get_streak_counter, get_name_of_longest_streak, get_single_alltime_streak, get_alltime_streak,
+                     get_alltime_habit, get_habits_by_periodicity)
 
 
 def cli():
@@ -25,9 +26,10 @@ def cli():
         choice = questionary.select(
             "What would you like to do?",
             choices=[
-                "Add habit", "Remove habit", "Mark habit complete",
-                "Show habits", "Show a habit's streak", "Show my highest streak",
-                "Exit"],
+                "Add habit", "Remove habit", "Mark habit complete", "Update Habit",
+                "Show habits", "Show habits by periodicity",
+                "Show a habit's streak", "Show my longest streak", "Show a habit's longest streak",
+                "Show the longest streak by periodicity", "Exit"],
         ).ask()
 
         if choice == "Show habits":
@@ -67,6 +69,23 @@ def cli():
                 habit = Habit(name, "", "")
                 habit.remove(db)
 
+        elif choice == "Update Habit":
+            # Update a habit's description and periodicity in the database
+            if not get_habits(db):
+                print("No habits found")
+            else:
+                name = questionary.text("Enter the name of the habit").ask()
+                if name not in get_habit_names(db):
+                    print("Habit does not exist")
+                else:
+                    description = questionary.text("Enter the description of the habit").ask()
+                    periodicity = questionary.select(
+                        "Enter the periodicity of the habit",
+                        choices=["daily", "weekly"],
+                    ).ask()
+                    habit = Habit(name, description, periodicity)
+                    habit.update(db)
+
         elif choice == "Mark habit complete":
             # Write a new row entry to the database, incrementing the previous streak counter value by 1
             if not get_habits(db):
@@ -89,6 +108,17 @@ def cli():
                         break_streak(db, name)
                         print("Habit has been broken")
 
+        elif choice == "Show habits by periodicity":
+            # Display all habits by periodicity
+            if not get_habits(db):
+                print("No habits found")
+            else:
+                periodicity = questionary.select(
+                    "Enter the periodicity of the habit",
+                    choices=["daily", "weekly"],
+                ).ask()
+                print(get_habits_by_periodicity(db, periodicity))
+
         elif choice == "Show a habit's streak":
             # Display the current streak for a given habit
             if not get_habits(db):
@@ -101,15 +131,50 @@ def cli():
                     print("Habit name cannot be empty")
                 else:
                     streak = get_streak_counter(db, name)
-                    print(f'The habit "{name}" has a streak of {streak} days!')
+                    habit = name
+                    periodicity = str(get_periodicity(db, habit))[2:-3]
+                    if periodicity == "daily":
+                        print(f'The habit "{name}" has a streak of {streak} days!')
+                    elif periodicity == "weekly":
+                        print(f'The habit "{name}" has a streak of {streak} weeks!')
 
-        elif choice == "Show my highest streak":
+        elif choice == "Show my longest streak":
             # Display the name(s) of the habit(s) with the longest streak
             if not get_habits(db):
                 print("No habits found")
             else:
                 print(f'The habit(s) with the longest streak are {get_name_of_longest_streak(db)}'
                       f' with a streak of {return_max_habit_streaks(db)}!')
+
+        elif choice == "Show a habit's longest streak":
+            # Display the longest streak for a given habit
+            if not get_habits(db):
+                print("No habits found")
+            else:
+                name = questionary.text("Enter the name of the habit").ask()
+                if name not in get_habit_names(db):
+                    print("Habit does not exist")
+                elif name == "":
+                    print("Habit name cannot be empty")
+                else:
+                    streak = get_single_alltime_streak(db, name)
+                    print(f'The longest streak for habit "{name}" is {streak}!')
+
+        elif choice == "Show the longest streak by periodicity":
+            # Display the longest streak for a given periodicity
+            if not get_habits(db):
+                print("No habits found")
+            else:
+                periodicity = questionary.select(
+                    "Enter the periodicity of the habit",
+                    choices=["daily", "weekly"],
+                ).ask()
+                alltime_streak = get_alltime_streak(db, periodicity)
+                habits = get_alltime_habit(db, periodicity)
+                if periodicity == "weekly":
+                    print(f'The longest recorded {periodicity} streak is {habits} at {alltime_streak} weeks!')
+                elif periodicity == "daily":
+                    print(f'The longest recorded {periodicity} streak is {habits} at {alltime_streak} days!')
 
         elif choice == "Exit":
             exit()
